@@ -4,39 +4,11 @@
 #include <math.h>
 #include "Func.h"
 
-const int NUM_OF_BUILDINGS = 100;
-const double PI = 3.14159;
-const int NUM_OF_WINDOWS = 100;
-const int NUM_OF_STARS = 100;
-const int NUM_OF_WAVES = 8;
-double waveSpeed = 0.001;
-
-typedef struct {
-	double x, y, size, speed;
-} STAR;
-
-typedef struct {
-	double y;
-	double size;
-	double sizeIndex;
-} WAVE;
-
-typedef struct {
-	double red, green, blue;
-} COLOR;
-
-typedef struct {
-	double x;
-	double y;
-	double width;
-	bool windows[NUM_OF_WINDOWS][NUM_OF_WINDOWS];
-	int windowsPerRow;
-	int windowStyle;
-} BUILDING;
 
 BUILDING buildings[NUM_OF_BUILDINGS];
 STAR stars[NUM_OF_STARS];
 WAVE waves[NUM_OF_WAVES];
+BOAT boats[NUM_OF_BOATS];
 
 int buildingIndex = 0;
 
@@ -50,6 +22,7 @@ void init()
 
 	srand(time(NULL));
 
+	// init buildings with random number of windows and style
 	for (int i = 0; i < NUM_OF_BUILDINGS; i++)
 	{
 		buildings[i].windowsPerRow = rand() % 5 + 3;
@@ -63,21 +36,35 @@ void init()
 		}
 	}
 
+	// init stars with random position, speed and size
 	for (int i = 0; i < NUM_OF_STARS; i++)
 	{
 		stars[i].x = rand() % 1000 / 500.0 - 1;
 		stars[i].y = rand() % 1000 / 1000.0;
 		stars[i].size = rand() % 1000 / 100000.0;
-		stars[i].speed = rand() % 1000 / 1000000.0 + 0.001;
+		stars[i].speed = rand() % 1000 / 10000000.0 + 0.00001;
 	}
 
+	// init waves with size index for each wave
 	for (int i = 0; i < NUM_OF_WAVES; i += 1)
 	{
-		waves[i].y = -i * i / (double)(NUM_OF_WAVES*NUM_OF_WAVES);
-		waves[i].size = (i + 1)*(i + 1) / (double)(NUM_OF_WAVES*NUM_OF_WAVES) + waves[i].y;
 		waves[i].sizeIndex = i;
 	}
 
+	// init boats with random values
+	for (int i = 0; i < NUM_OF_BOATS; i += 1)
+	{
+		boats[i].sizeIndex = i;
+		boats[i].size = fRand((double)i/NUM_OF_BOATS, (double)(i+1) / NUM_OF_BOATS) / 2;
+		boats[i].x = rand() % 1000 / 500.0 - 1;
+		boats[i].speed = boats[i].size/1000;
+	}
+}
+
+double fRand(double fMin, double fMax)
+{
+	double f = (double)rand() / RAND_MAX;
+	return fMin + f * (fMax - fMin);
 }
 
 void drawStars()
@@ -86,10 +73,10 @@ void drawStars()
 	{
 		glBegin(GL_POLYGON);
 		glColor3d(1, 1, 0.5);
-		glVertex2d(stars[i].x, stars[i].y); //1
-		glVertex2d(stars[i].x + stars[i].size, stars[i].y); //2
-		glVertex2d(stars[i].x + stars[i].size, stars[i].y - stars[i].size); //3
-		glVertex2d(stars[i].x, stars[i].y - stars[i].size); //4
+		glVertex2d(stars[i].x, stars[i].y - stars[i].size / 2); //1
+		glVertex2d(stars[i].x + stars[i].size / 2, stars[i].y); //2
+		glVertex2d(stars[i].x + stars[i].size, stars[i].y - stars[i].size / 2); //3
+		glVertex2d(stars[i].x + stars[i].size / 2, stars[i].y - stars[i].size); //4
 		glEnd();
 	}
 
@@ -99,10 +86,26 @@ void drawStars()
 	{
 		glBegin(GL_POLYGON);
 		glColor3d(1, 1, 0.5);
-		glVertex2d(stars[i].x, -stars[i].y); //1
-		glVertex2d(stars[i].x + stars[i].size, -stars[i].y); //2
-		glVertex2d(stars[i].x + stars[i].size, -stars[i].y + stars[i].size); //3
-		glVertex2d(stars[i].x, -stars[i].y + stars[i].size); //4
+		glVertex2d(stars[i].x, -(stars[i].y - stars[i].size / 2)); //1
+		glVertex2d(stars[i].x + stars[i].size / 2, -(stars[i].y)); //2
+		glVertex2d(stars[i].x + stars[i].size, -(stars[i].y - stars[i].size / 2)); //3
+		glVertex2d(stars[i].x + stars[i].size / 2, -(stars[i].y - stars[i].size)); //4
+		glEnd();
+	}
+}
+
+void drawBoats()
+{
+	double size = 0.4;
+	double position = 0.0;
+	for (int i = 0; i < NUM_OF_BOATS; i++)
+	{
+		glBegin(GL_POLYGON);
+		glColor3d(0.2*boats[i].size, 0.1*boats[i].size, 0.4*boats[i].size);
+		for (double x = -1; x < 1; x += 0.1)
+		{
+			glVertex2d(sin(x*PI / 3)*boats[i].size + boats[i].x, -cos(x*PI / 4)*boats[i].size); //1
+		}
 		glEnd();
 	}
 }
@@ -150,6 +153,7 @@ void drawSingleBuilding(double x, double y, double w)
 	glBegin(GL_POLYGON);
 	glVertex2d(x, y); // 1
 	glVertex2d(x - shadowWidth, y - shadowWidth);
+	glColor3d(0.4, 0.2, 0.2);
 	glVertex2d(x - shadowWidth, 0);
 	glVertex2d(x, 0); // 1
 	glEnd();
@@ -354,7 +358,7 @@ void drawSeaWaves()
 	for (int i = 0; i < NUM_OF_WAVES; i++)
 	{
 		glBegin(GL_POLYGON);
-		glColor4d(0, 0, 0.2, 0.8);
+		glColor4d(0, 0, 0.1, 0.6);
 		glVertex2d(-1, waves[i].y); //1
 		glVertex2d(1, waves[i].y); //2
 		glColor4d(0, 0, 0, 0);
@@ -362,6 +366,27 @@ void drawSeaWaves()
 		glVertex2d(-1, waves[i].y - waves[i].size); //4
 		glEnd();
 	}
+}
+
+void drawGround()
+{
+	double y;
+	glBegin(GL_POLYGON);
+	glColor3d(1, 1, 1);
+	glVertex2d(1, -0.1); //2
+	glVertex2d(-1, -0.1); //1
+	for (double x = -1.1; x <= 1.1; x += 0.1)
+	{
+		glColor3d(x, x, x);
+		//y = vertical_shift + fabs(s_amp * sin(s_phase + s_freq * x) + c_amp * cos(c_phase + c_freq * x));
+		glVertex2d(x, 0.05 + 0.05*sin(x * 20)); //1
+		x += 0.1;
+		glVertex2d(x, 0.05 + 0.05*sin(x * 20)); //1
+	}
+
+	//glVertex2d(-1, 0.01); //3
+	//glVertex2d(-1, -0.01); //4
+	glEnd();
 }
 
 void flipWindows(int index)
@@ -511,7 +536,10 @@ void display()
 	drawStreetLamps();
 	overlayReflection();
 	drawSeaWaves();
+	//drawGround();
 
+
+	//drawBoats();
 	buildingIndex = 0;
 
 
@@ -546,6 +574,22 @@ void idle()
 		else if (waves[i].sizeIndex > NUM_OF_WAVES)
 		{
 			waves[i].sizeIndex = 0;
+		}
+	}
+
+	for (int i = 0; i < NUM_OF_BOATS; i++)
+	{
+		boats[i].x += boats[i].speed;
+		if (boats[i].x > 1.5)
+		{
+			boats[i].x = -1.5;
+			
+			boats[i].size = fRand((double)i / NUM_OF_BOATS, (double)(i + 1) / NUM_OF_BOATS);
+		}
+		else if (boats[i].x <-1.5)
+		{
+			boats[i].x = 1.5;
+			boats[i].size = fRand((double)i / NUM_OF_BOATS, (double)(i + 1) / NUM_OF_BOATS);
 		}
 	}
 
