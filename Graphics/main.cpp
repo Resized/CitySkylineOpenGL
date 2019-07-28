@@ -4,11 +4,11 @@
 #include <math.h>
 #include "Func.h"
 
-
 BUILDING buildings[NUM_OF_BUILDINGS];
 STAR stars[NUM_OF_STARS];
 WAVE waves[NUM_OF_WAVES];
 BOAT boats[NUM_OF_BOATS];
+STREETLIGHT lights[NUM_OF_STREETLIGHTS];
 
 int buildingIndex = 0;
 
@@ -31,7 +31,7 @@ void init()
 		{
 			for (int k = 0; k < NUM_OF_WINDOWS; k++)
 			{
-				buildings[i].windows[j][k] = rand() % 1000 / 1000.0 > 0.1 ? 1 : 0;
+				buildings[i].windows[j][k] = rand() % 1000 / 1000.0 > WINDOWS_ON ? 0 : 1;
 			}
 		}
 	}
@@ -41,8 +41,8 @@ void init()
 	{
 		stars[i].x = rand() % 1000 / 500.0 - 1;
 		stars[i].y = rand() % 1000 / 1000.0;
-		stars[i].size = rand() % 1000 / 100000.0;
-		stars[i].speed = rand() % 1000 / 10000000.0 + 0.00001;
+		stars[i].size = fRand(STAR_SIZE / 10, STAR_SIZE) + STAR_SIZE / 10;
+		stars[i].speed = fRand(STAR_SPEED / 10, STAR_SPEED) + STAR_SPEED / 10;
 	}
 
 	// init waves with size index for each wave
@@ -55,12 +55,26 @@ void init()
 	for (int i = 0; i < NUM_OF_BOATS; i += 1)
 	{
 		boats[i].sizeIndex = i;
-		boats[i].size = fRand((double)i/NUM_OF_BOATS, (double)(i+1) / NUM_OF_BOATS) / 2;
+		boats[i].size = fRand((double)i / (double)NUM_OF_BOATS, ((double)i + 1) / (double)NUM_OF_BOATS) / 2;
 		boats[i].x = rand() % 1000 / 500.0 - 1;
-		boats[i].speed = boats[i].size/1000;
+		boats[i].speed = boats[i].size / 1000;
+	}
+
+	for (int i = 0; i < NUM_OF_STREETLIGHTS; i++)
+	{
+		lights[i].height = POSTS_HEIGHT;
+		lights[i].width = POSTS_WIDTH;
+		lights[i].lightInsideColor = { 1,1,0.8,1,TRUE };
+		lights[i].lightOutsideColor = { 1,1,0.4,0.0001,TRUE };
+		lights[i].isLightFlickering = rand() % 1000 / 1000.0 > LIGHT_FLICKER_CHANCE ? 0 : 1;
+		if (lights[i].isLightFlickering)
+			lights[i].isLightOn = rand() % 1000 / 1000.0 > 0.5 ? 1 : 0;
+		else
+			lights[i].isLightOn = 1;
 	}
 }
 
+// returns double type random from min to max
 double fRand(double fMin, double fMax)
 {
 	double f = (double)rand() / RAND_MAX;
@@ -69,29 +83,39 @@ double fRand(double fMin, double fMax)
 
 void drawStars()
 {
-	for (int i = 0; i < NUM_OF_STARS; i++)
-	{
-		glBegin(GL_POLYGON);
-		glColor3d(1, 1, 0.5);
-		glVertex2d(stars[i].x, stars[i].y - stars[i].size / 2); //1
-		glVertex2d(stars[i].x + stars[i].size / 2, stars[i].y); //2
-		glVertex2d(stars[i].x + stars[i].size, stars[i].y - stars[i].size / 2); //3
-		glVertex2d(stars[i].x + stars[i].size / 2, stars[i].y - stars[i].size); //4
-		glEnd();
-	}
-
-	// Reflection
+	const int numOfPoints = 4;
 
 	for (int i = 0; i < NUM_OF_STARS; i++)
 	{
-		glBegin(GL_POLYGON);
-		glColor3d(1, 1, 0.5);
-		glVertex2d(stars[i].x, -(stars[i].y - stars[i].size / 2)); //1
-		glVertex2d(stars[i].x + stars[i].size / 2, -(stars[i].y)); //2
-		glVertex2d(stars[i].x + stars[i].size, -(stars[i].y - stars[i].size / 2)); //3
-		glVertex2d(stars[i].x + stars[i].size / 2, -(stars[i].y - stars[i].size)); //4
-		glEnd();
+		POINT_2D points[numOfPoints] = { { stars[i].x , stars[i].y - stars[i].size / 2, { 1,1,0.5 } },
+										{ stars[i].x + stars[i].size / 2 , stars[i].y , { 1,1,0.5 } },
+										{ stars[i].x + stars[i].size , stars[i].y - stars[i].size / 2 , { 1,1,0.5 } },
+										{ stars[i].x + stars[i].size / 2 , stars[i].y - stars[i].size , { 1,1,0.5 } } };
+
+		drawHelper(points, numOfPoints, FALSE);
+		drawHelper(points, numOfPoints, TRUE); // Reflection
 	}
+}
+
+void drawHelper(POINT_2D * points, int numOfPoints, bool isReflection)
+{
+	if (isReflection)
+	{
+		for (int i = 0; i < numOfPoints; i++)
+		{
+			points[i].y = -points[i].y;
+		}
+	}
+	glBegin(GL_POLYGON);
+	for (int i = 0; i < numOfPoints; i++)
+	{
+		if (points[i].color.useAlpha)
+			glColor4d(points[i].color.red, points[i].color.green, points[i].color.blue, points[i].color.alpha);
+		else
+			glColor3d(points[i].color.red, points[i].color.green, points[i].color.blue);
+		glVertex2d(points[i].x, points[i].y);
+	}
+	glEnd();
 }
 
 void drawBoats()
@@ -112,140 +136,88 @@ void drawBoats()
 
 void drawBackground()
 {
-	glColor3d(0, 0, 0.1);
-	glBegin(GL_POLYGON);
-	glVertex2d(-1, 1); //1
-	glVertex2d(1, 1); //2
-	glColor3d(0, 0, 1);
-	glVertex2d(1, 0); //3
-	glVertex2d(-1, 0); //4
-	glEnd();
-
-	glColor3d(0, 0, 1);
-	glBegin(GL_POLYGON);
-	glVertex2d(-1, 0); //1
-	glVertex2d(1, 0); //2
-	glColor3d(0, 0, 0.1);
-	glVertex2d(1, -1); //3
-	glVertex2d(-1, -1); //4
-	glEnd();
+	const int numOfPoints = 4;
+	POINT_2D points[numOfPoints] = { { -1 , 1 , { 0,0,0.1 } },
+									{ 1 , 1 , { 0,0,0.1 } },
+									{ 1 , 0  , { 0, 0, 1 } },
+									{ -1 , 0  , { 0, 0, 1 } } };
+	drawHelper(points, numOfPoints, FALSE);
+	drawHelper(points, numOfPoints, TRUE); // Reflection
 }
 
-void drawSingleBuilding(double x, double y, double w)
+void drawSingleBuilding(double x, double y, double w, bool windows, bool shadow)
 {
 	buildings[buildingIndex].x = x;
 	buildings[buildingIndex].y = y;
 	buildings[buildingIndex].width = w;
+	//COLOR color[4] = { { fabs(y),0.7*fabs(y),0.5*fabs(y) },
+	//				{ 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) },
+	//				{ 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) },
+	//				{ 0.3*fabs(y), 0.5*fabs(y), 0.7*fabs(y) } };
+	const int numOfPoints = 4;
+	POINT_2D points_building[numOfPoints] = { { x , y , { fabs(y),0.7*fabs(y),0.5*fabs(y) } },
+									{ x, 0 , { 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) } },
+									{ x + w, 0  , { 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) } },
+									{ x + w, y  , { 0.3*fabs(y), 0.5*fabs(y), 0.7*fabs(y) } } };
 
-	glColor3d(fabs(y), 0.7*fabs(y), 0.5*fabs(y));
-	glBegin(GL_POLYGON);
-	glVertex2d(x, y); // 1
-	glColor3d(0.8 - fabs(0.3*x), 0.5 - fabs(0.3*x), 0.8 - fabs(0.3*x));
-	glVertex2d(x, 0);//2
-	glVertex2d(x + w, 0);//3
-	glColor3d(0.3*fabs(y), 0.5*fabs(y), 0.7*fabs(y));
-	glVertex2d(x + w, y);//4
-	glEnd();
+	drawHelper(points_building, numOfPoints, FALSE);
+	drawHelper(points_building, numOfPoints, TRUE); // reflection
 
-	// add shadow
-	double shadowWidth = w / 3;
-	glColor3d(0.2, 0, 0.2);
-	glBegin(GL_POLYGON);
-	glVertex2d(x, y); // 1
-	glVertex2d(x - shadowWidth, y - shadowWidth);
-	glColor3d(0.4, 0.2, 0.2);
-	glVertex2d(x - shadowWidth, 0);
-	glVertex2d(x, 0); // 1
-	glEnd();
+	if (shadow)
+	{
+		// add shadow
+		double shadowWidth = w / 3;
 
-	// add reflection
-	drawSingleBuildingReflection(x, y, w);
-	// add windows
-	drawWindows(x, y, w);
-}
+		POINT_2D points_shadow[numOfPoints] = { { x , y , { 0.2, 0, 0.2 } },
+												{ x - shadowWidth, y - shadowWidth , { 0.2, 0, 0.2 } },
+												{ x - shadowWidth, 0  , { 0.4, 0.2, 0.2 } },
+												{ x, 0  , { 0.4, 0.2, 0.2 } } };
 
-void drawSingleBuildingReflection(double x, double y, double w)
-{
-	y = -y;
-	glColor3d(fabs(y), 0.7*fabs(y), 0.5*fabs(y));
-	glBegin(GL_POLYGON);
-	glVertex2d(x, y); // 1
-	glColor3d(0.8 - fabs(0.3*x), 0.5 - fabs(0.3*x), 0.8 - fabs(0.3*x));
-	glVertex2d(x, 0);//2
-	glVertex2d(x + w, 0);//3
-	glColor3d(0.3*fabs(y), 0.5*fabs(y), 0.7*fabs(y));
-	glVertex2d(x + w, y);//4
-	glEnd();
+		drawHelper(points_shadow, numOfPoints, FALSE);
+		drawHelper(points_shadow, numOfPoints, TRUE); // reflection
+	}
 
-	// add shadow
-	double shadowWidth = w / 3;
-	glColor3d(0.1, 0, 0.1);
-	glBegin(GL_POLYGON);
-	glVertex2d(x, y); // 1
-	glVertex2d(x - shadowWidth, y + shadowWidth);
-	glVertex2d(x - shadowWidth, 0);
-	glVertex2d(x, 0); // 1
-	glEnd();
+	if (windows)
+	{
+		// add windows
+		drawWindows(x, y, w);
+	}
 }
 
 void drawWindows(double x, double y, double w)
 {
+	const int numOfPoints = 4;
 	double windowBuffer = w / buildings[buildingIndex].windowsPerRow / 3;
-	double windowWidth = (w - windowBuffer * (buildings[buildingIndex].windowsPerRow + 1)) / (buildings[buildingIndex].windowsPerRow);
+	double windowWidth = (w - windowBuffer * ((double)buildings[buildingIndex].windowsPerRow + 1)) / (buildings[buildingIndex].windowsPerRow);
 	double windowBuffer_x = windowBuffer * buildings[buildingIndex].windowStyle;
 	int k = 0, l = 0;
-	for (double i = x + windowBuffer; i < x + w - windowWidth; i += (windowWidth + windowBuffer_x))
+	for (double i = x + windowBuffer; i < x + w - windowWidth; i += (windowWidth + windowBuffer_x), k++)
 	{
-		for (double j = y - windowBuffer * 2; j >= windowWidth; j -= (windowWidth + windowBuffer))
+		for (double j = y - windowBuffer * 2; j >= windowWidth; j -= (windowWidth + windowBuffer), l++)
 		{
-			buildings[buildingIndex].windows[k][l] == 1 ? glColor3d(1, 1, 0) : glColor3d(0.2, 0.2, 0);
-			glBegin(GL_POLYGON);
-			glVertex2d(i, j); // 1
-			glVertex2d(i + windowWidth, j); // 1
-			glVertex2d(i + windowWidth, j - windowWidth); // 1
-			glVertex2d(i, j - windowWidth); // 1
-			k++;
-			l++;
-
-			glEnd();
-
-		}
-	}
-	drawWindowsReflection(x, y, w, windowWidth, windowBuffer);
-}
-
-void drawWindowsReflection(double x, double y, double w, double windowWidth, double windowBuffer)
-{
-	y = -y;
-	int k = 0, l = 0;
-	double windowBuffer_x = windowBuffer * buildings[buildingIndex].windowStyle;
-	for (double i = x + windowBuffer; i < x + w - windowWidth; i += (windowWidth + windowBuffer_x))
-	{
-		for (double j = y + windowBuffer * 2; j <= -windowWidth; j += (windowWidth + windowBuffer))
-		{
-			buildings[buildingIndex].windows[k][l] == 1 ? glColor3d(1, 1, 0) : glColor3d(0.2, 0.2, 0);
-			glBegin(GL_POLYGON);
-			glVertex2d(i, j); // 1
-			glVertex2d(i + windowWidth, j); // 1
-			glVertex2d(i + windowWidth, j + windowWidth); // 1
-			glVertex2d(i, j + windowWidth); // 1
-			k++;
-			l++;
-			glEnd();
+			COLOR color;
+			buildings[buildingIndex].windows[k][l] == 1 ? color = { 1, 1, 0 } : color = { 0.2, 0.2, 0 };
+			POINT_2D points[numOfPoints] = { { i, j , color } ,
+											{ i + windowWidth, j , color },
+											{ i + windowWidth, j - windowWidth  , color },
+											{ i, j - windowWidth  , color } };
+			drawHelper(points, numOfPoints, FALSE);
+			drawHelper(points, numOfPoints, TRUE);
 		}
 	}
 }
+
 
 void drawSkyline(double s_freq, double s_amp, double s_phase,
 	double c_freq, double c_amp, double c_phase,
-	double vertical_shift, double buildingWidth, double sampleFreq, double drawBuildingShift)
+	double vertical_shift, double buildingWidth, double sampleFreq, double drawBuildingShift, bool toDrawWindows, bool toDrawShadow)
 {
 	// y = abs(z*sin(ax+b) + w*cos(cx+d)) + g
 	double x, y;
 	for (x = -1 + drawBuildingShift; x <= 1; x += sampleFreq)
 	{
 		y = vertical_shift + fabs(s_amp * sin(s_phase + s_freq * x) + c_amp * cos(c_phase + c_freq * x));
-		drawSingleBuilding(x, y, buildingWidth);
+		drawSingleBuilding(x, y, buildingWidth, toDrawWindows, toDrawShadow);
 		buildingIndex++;
 	}
 
@@ -253,121 +225,94 @@ void drawSkyline(double s_freq, double s_amp, double s_phase,
 
 void drawMoon()
 {
-	glBegin(GL_POLYGON);
-	for (double x = -1; x < 1; x += 0.05)
+	const int numOfPoints = 30;
+	POINT_2D points[numOfPoints];
+	double x = -1;
+	const double step = 2.0 / numOfPoints;
+	for (int i = 0; i < numOfPoints; i++, x += step)
 	{
-		glColor3d(0, 0, 0.3);
-		glVertex2d(cos(x*PI) / 12 - 0.8, sin(x*PI) / 12 + 0.8); //1
+		points[i].x = cos(x*PI) / 12 - 0.8;
+		points[i].y = sin(x*PI) / 12 + 0.8;
+		points[i].color = { 0, 0, 0.3 };
 	}
-	glEnd();
+	drawHelper(points, numOfPoints, FALSE);
+	drawHelper(points, numOfPoints, TRUE); // reflection
 
-	glBegin(GL_POLYGON);
-	for (double x = -1; x < 1; x += 0.05)
+	x = -1;
+	for (int i = 0; i < numOfPoints; i++, x += step)
 	{
 		double moonColor = sin(x*PI) > 0.1 ? sin(x*PI) : 0.1;
-		glColor4d(moonColor, moonColor, moonColor, sin(x*PI));
-		glVertex2d(cos(x*PI) / 12 - 0.8, sin(x*PI) / 12 + 0.8); //1
+		points[i].x = cos(x*PI) / 12 - 0.8;
+		points[i].y = sin(x*PI) / 12 + 0.8;
+		points[i].color = { moonColor, moonColor, moonColor, sin(x*PI), TRUE };
 	}
-	glEnd();
-
-	// reflection
-	glBegin(GL_POLYGON);
-	for (double x = -1; x < 1; x += 0.05)
-	{
-		glColor3d(0, 0, 0.3);
-		glVertex2d(cos(x*PI) / 12 - 0.8, sin(x*PI) / 12 - 0.8); //1
-	}
-	glEnd();
-
-	glBegin(GL_POLYGON);
-	for (double x = -1; x < 1; x += 0.05)
-	{
-		double moonColor = -sin(x*PI) > 0.1 ? -sin(x*PI) : 0.1;
-		glColor4d(moonColor, moonColor, moonColor, -sin(x*PI));
-		glVertex2d(cos(x*PI) / 12 - 0.8, sin(x*PI) / 12 - 0.8); //1
-	}
-	glEnd();
+	drawHelper(points, numOfPoints, FALSE);
+	drawHelper(points, numOfPoints, TRUE); // reflection
 }
 
 void drawStreetLamps()
 {
-	double step = 0.1;
-	for (double x = -0.95; x < 1; x += step)
+	const int numOfPointsPost = 4;
+	const int numOfPointsLight = 20;
+
+	const double step = (fabs(POSTS_MIN) + fabs(POSTS_MAX)) / NUM_OF_STREETLIGHTS;
+	POINT_2D pointsLight[numOfPointsLight + 1];
+	int i = 0;
+	for (double x = POSTS_MIN + POST_SHIFT; x < POSTS_MAX + POST_SHIFT; x += step, i++)
 	{
-		glBegin(GL_POLYGON);
-		glColor3d(0.5, 0.5, 0);
-		glVertex2d(x, step); //1
-		glVertex2d(x + step / 10, step); //2
-		glColor3d(0, 0, 0);
-		glVertex2d(x + step / 10, 0); //3
-		glVertex2d(x, 0); //4
-		glEnd();
+		COLOR colorTop = lights[i].isLightOn ? lights[i].poleTop : lights[i].poleBottom;
+		COLOR colorBottom = lights[i].poleBottom;
+		POINT_2D pointsPost[numOfPointsPost] = { {x, POSTS_HEIGHT, {colorTop.red, colorTop.green, colorTop.blue}},
+												{x + POSTS_WIDTH, POSTS_HEIGHT, {colorTop.red, colorTop.green, colorTop.blue}},
+												{x + POSTS_WIDTH, 0, {colorBottom.red, colorBottom.green, colorBottom.blue}},
+												{x, 0, {colorBottom.red, colorBottom.green, colorBottom.blue}} };
+		drawHelper(pointsPost, numOfPointsPost, FALSE);
+		drawHelper(pointsPost, numOfPointsPost, TRUE);
 
-		glBegin(GL_POLYGON);
-		glColor4d(1, 1, 0.6, 1);
-		glVertex2d(x + step / 20, step);
-		for (double i = -1; i < 1; i += 0.1)
+		if (lights[i].isLightOn)
 		{
-			glColor4d(1, 1, 1, 0);
-			glVertex2d(cos(i*PI) / 20 + (x + step / 20), sin(i*PI) / 20 + step); // streetlamp's light
+			//	draw light
+			pointsLight[0].x = x + POSTS_WIDTH / 2; // first center light point
+			pointsLight[0].y = POSTS_HEIGHT;
+			pointsLight[0].color = { 1, 1, 0.8, 1, TRUE };
+			double x_lights = -1;
+			for (int j = 1; j <= numOfPointsLight; j++, x_lights += (2.0 / (numOfPointsLight - 2)))
+			{
+				pointsLight[j].x = cos(x_lights*PI) * LIGHT_SIZE + (x + POSTS_WIDTH / 2);
+				pointsLight[j].y = sin(x_lights*PI) * LIGHT_SIZE + POSTS_HEIGHT;
+				pointsLight[j].color = { 1, 1, 0.4, 0, TRUE };
+
+			}
+			drawHelper(pointsLight, numOfPointsLight, FALSE);
+			drawHelper(pointsLight, numOfPointsLight, TRUE);
 		}
-		glEnd();
-
-	}
-
-	// reflection
-	for (double x = -0.95; x < 1; x += step)
-	{
-		glBegin(GL_POLYGON);
-		glColor3d(0, 0, 0);
-		glVertex2d(x, 0); //1
-		glVertex2d(x + step / 10, 0); //2
-		glColor3d(0.5, 0.5, 0);
-		glVertex2d(x + step / 10, -step); //3
-		glVertex2d(x, -step); //4
-		glEnd();
-
-		glBegin(GL_POLYGON);
-		glColor4d(1, 1, 0.6, 1);
-		glVertex2d(x + step / 20, -step);
-		for (double i = -1; i < 1; i += 0.1)
-		{
-			glColor4d(1, 1, 1, 0);
-			glVertex2d(cos(i*PI) / 20 + (x + step / 20), sin(i*PI) / 20 - step); // streetlamp's light
-		}
-		glEnd();
 	}
 }
 
 void overlayReflection()
 {
-	double y;
-	// glColor4d(0, 0.2*fabs(1 + y), 0.6*fabs(1 + y), fabs(y/3) + 0.5);
-	glColor4d(0.1, 0, 0.4, 0.5);
-	glBegin(GL_POLYGON);
-	glVertex2d(-1, 0); //1
-	glVertex2d(1, 0); //2
-	glColor4d(0, 0, 0.1, 1);
-	glVertex2d(1, -1); //3
-	glVertex2d(-1, -1); //4
-	glEnd();
+	const int numOfPoints = 4;
+	POINT_2D points[numOfPoints] = { { -1, 0 , { 0.1, 0, 0.4, 0.5, TRUE } },
+									{ 1, 0 , { 0.1, 0, 0.4, 0.5, TRUE } },
+									{ 1, -1  , { 0, 0, 0.1, 1, TRUE } },
+									{ -1, -1  , { 0, 0, 0.1, 1, TRUE } } };
+	drawHelper(points, numOfPoints, FALSE);
 }
 
 void drawSeaWaves()
 {
+	const int numOfPoints = 4;
 	for (int i = 0; i < NUM_OF_WAVES; i++)
 	{
-		glBegin(GL_POLYGON);
-		glColor4d(0, 0, 0.1, 0.6);
-		glVertex2d(-1, waves[i].y); //1
-		glVertex2d(1, waves[i].y); //2
-		glColor4d(0, 0, 0, 0);
-		glVertex2d(1, waves[i].y - waves[i].size); //3
-		glVertex2d(-1, waves[i].y - waves[i].size); //4
-		glEnd();
+		POINT_2D points[numOfPoints] = { { -1, waves[i].y , { 0, 0, 0.1, 0.6, TRUE } },
+								{ 1, waves[i].y , { 0, 0, 0.1, 0.6, TRUE } },
+								{ 1, waves[i].y - waves[i].size , { 0, 0, 0, 0, TRUE } },
+								{ -1, waves[i].y - waves[i].size  , { 0, 0, 0, 0, TRUE } } };
+		drawHelper(points, numOfPoints, FALSE);
 	}
 }
 
+// UNIMPLEMENTED
 void drawGround()
 {
 	double y;
@@ -393,7 +338,7 @@ void flipWindows(int index)
 {
 	int i = rand() % NUM_OF_WINDOWS;
 	int j = rand() % NUM_OF_WINDOWS;
-	buildings[index].windows[i][j] ^= rand() % 1000 / 1000.0 > 0.1 ? 1 : 0;
+	buildings[index].windows[i][j] ^= rand() % 1000 / 1000.0 > FLIP_WINDOW_RATE ? 0 : 1;
 }
 
 void drawSingleBackBuilding(double x, double y, double w, COLOR color)
@@ -442,6 +387,7 @@ void display()
 	double s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift;
 	COLOR color;
 
+	// Background Buildings #1
 	s_freq = PI * 10;
 	s_amp = 0.05;
 	s_phase = 0.3;
@@ -455,10 +401,9 @@ void display()
 	color.red = 0.1;
 	color.green = 0;
 	color.blue = 0.1;
+	drawBackSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, color);
 
-	drawBackSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, color); // Background Buildings #1
-
-
+	// Background Buildings #2
 	s_freq = PI * 20;
 	s_amp = 0.05;
 	s_phase = 0.4;
@@ -472,9 +417,9 @@ void display()
 	color.red = 0.15;
 	color.green = 0;
 	color.blue = 0.15;
+	drawBackSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, color);
 
-	drawBackSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, color); // Background Buildings #2
-
+	// First Buildings Layer
 	s_freq = PI * 5;
 	s_amp = 0.1;
 	s_phase = 0.4;
@@ -485,10 +430,9 @@ void display()
 	buildingWidth = 0.15;
 	sampleFreq = 0.15;
 	drawBuildingShift = 0.01;
+	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, TRUE, TRUE);
 
-	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift); // First Buildings Layer
-
-
+	// Second Buildings Layer
 	s_freq = PI * 10;
 	s_amp = 0.1;
 	s_phase = 0.4;
@@ -499,9 +443,9 @@ void display()
 	buildingWidth = 0.08;
 	sampleFreq = 0.11;
 	drawBuildingShift = 0.01;
+	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, TRUE, TRUE);
 
-	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift);// Second Buildings Layer
-
+	// Third Buildings Layer
 	s_freq = PI * 5;
 	s_amp = 0.2;
 	s_phase = 0.3;
@@ -512,9 +456,9 @@ void display()
 	buildingWidth = 0.09;
 	sampleFreq = 0.12;
 	drawBuildingShift = -0.01;
+	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, TRUE, TRUE);
 
-	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift);// Third Buildings Layer
-
+	// Foreground Buildings
 	s_freq = PI * 5;
 	s_amp = 0.1;
 	s_phase = 0.4;
@@ -525,8 +469,7 @@ void display()
 	buildingWidth = 0.21;
 	sampleFreq = 0.34;
 	drawBuildingShift = 0.08;
-
-	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift); // Foreground Buildings
+	drawSkyline(s_freq, s_amp, s_phase, c_freq, c_amp, c_phase, vertical_shift, buildingWidth, sampleFreq, drawBuildingShift, TRUE, TRUE);
 
 
 	for (int i = 0; i < buildingIndex; i++)
@@ -564,7 +507,7 @@ void idle()
 
 	for (int i = 0; i < NUM_OF_WAVES; i++)
 	{
-		waves[i].sizeIndex += waveSpeed;
+		waves[i].sizeIndex += WAVE_SPEED;
 		waves[i].y = -waves[i].sizeIndex * waves[i].sizeIndex / (double)(NUM_OF_WAVES*NUM_OF_WAVES);
 		waves[i].size = (waves[i].sizeIndex + 1)*(waves[i].sizeIndex + 1) / (double)(NUM_OF_WAVES*NUM_OF_WAVES) + waves[i].y;
 		if (waves[i].sizeIndex <= 0)
@@ -583,13 +526,21 @@ void idle()
 		if (boats[i].x > 1.5)
 		{
 			boats[i].x = -1.5;
-			
-			boats[i].size = fRand((double)i / NUM_OF_BOATS, (double)(i + 1) / NUM_OF_BOATS);
+
+			boats[i].size = fRand((double)i / NUM_OF_BOATS, ((double)i + 1) / NUM_OF_BOATS);
 		}
-		else if (boats[i].x <-1.5)
+		else if (boats[i].x < -1.5)
 		{
 			boats[i].x = 1.5;
-			boats[i].size = fRand((double)i / NUM_OF_BOATS, (double)(i + 1) / NUM_OF_BOATS);
+			boats[i].size = fRand((double)i / NUM_OF_BOATS, ((double)i + 1) / NUM_OF_BOATS);
+		}
+	}
+
+	for (int i = 0; i < NUM_OF_STREETLIGHTS; i++)
+	{
+		if (lights[i].isLightFlickering)
+		{
+			lights[i].isLightOn = rand() % 1000 / 1000.0 > 0.9 ? lights[i].isLightOn ^ 1 : lights[i].isLightOn;
 		}
 	}
 
