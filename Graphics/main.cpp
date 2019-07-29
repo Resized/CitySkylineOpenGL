@@ -147,9 +147,9 @@ void drawBackground()
 
 void drawSingleBuilding(double x, double y, double w, bool windows, bool shadow)
 {
-	buildings[buildingIndex].x = x;
-	buildings[buildingIndex].y = y;
-	buildings[buildingIndex].width = w;
+	//buildings[buildingIndex].x = x;
+	//buildings[buildingIndex].y = y;
+	//buildings[buildingIndex].width = w;
 	//COLOR color[4] = { { fabs(y),0.7*fabs(y),0.5*fabs(y) },
 	//				{ 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) },
 	//				{ 0.8 - fabs(0.3*x),0.5 - fabs(0.3*x),0.8 - fabs(0.3*x) },
@@ -225,6 +225,7 @@ void drawSkyline(double s_freq, double s_amp, double s_phase,
 
 void drawMoon()
 {
+	// base color
 	const int numOfPoints = 30;
 	POINT_2D points[numOfPoints];
 	double x = -1;
@@ -238,6 +239,7 @@ void drawMoon()
 	drawHelper(points, numOfPoints, FALSE);
 	drawHelper(points, numOfPoints, TRUE); // reflection
 
+	// white overlay
 	x = -1;
 	for (int i = 0; i < numOfPoints; i++, x += step)
 	{
@@ -540,7 +542,7 @@ void idle()
 	{
 		if (lights[i].isLightFlickering)
 		{
-			lights[i].isLightOn = rand() % 1000 / 1000.0 > 0.9 ? lights[i].isLightOn ^ 1 : lights[i].isLightOn;
+			lights[i].isLightOn = rand() % 1000 / 1000.0 > LIGHT_FLICKER_SPEED ? lights[i].isLightOn : lights[i].isLightOn ^ 1;
 		}
 	}
 

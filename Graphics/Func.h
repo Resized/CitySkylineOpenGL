@@ -5,12 +5,12 @@ const int NUM_OF_WINDOWS = 100;
 const int NUM_OF_STARS = 200;
 const int NUM_OF_WAVES = 8;
 const int NUM_OF_BOATS = 8;
+const int NUM_OF_STREETLIGHTS = 14;
 const double STAR_SPEED = 0.0001;
 const double STAR_SIZE = 0.01;
 const double WAVE_SPEED = -0.0005; // minus = towards city, plus = away from city
 const double FLIP_WINDOW_RATE = 0.2;
 const double WINDOWS_ON = 0.6;
-const int NUM_OF_STREETLIGHTS = 14;
 const double POSTS_WIDTH = 0.01;
 const double POSTS_HEIGHT = 0.1;
 const double POSTS_MIN = -1.2;
@@ -18,6 +18,7 @@ const double POSTS_MAX = 1.2;
 const double POST_SHIFT = 0;
 const double LIGHT_SIZE = 0.08;
 const double LIGHT_FLICKER_CHANCE = 0.1;
+const double LIGHT_FLICKER_SPEED = 0.05;
 
 typedef struct {
 	double x, y, size, speed;
@@ -49,9 +50,8 @@ typedef struct {
 } BOAT;
 
 typedef struct {
-	double x;
-	double y;
-	double width;
+	POINT_2D * points;
+	int numOfPoints;
 	bool windows[NUM_OF_WINDOWS][NUM_OF_WINDOWS];
 	int windowsPerRow;
 	int windowStyle;
