@@ -12,6 +12,9 @@
 
 # Build results
 [Dd]ebug/
+# dlls necessary for run
+![Dd]ebug/freeglut.dll
+![Dd]ebug/glew32.dll
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
@@ -21,6 +24,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+
 
 # Visual Studio 2015 cache/options directory
 .vs/
